@@ -66,38 +66,41 @@ class Board:
                             moves.append(move)
         return moves
 
-    def perform_move(self, move):
+    def perform_move(self, move: Move):
         piece = self.chesspieces[move.xfrom][move.yfrom]
 
         # En passant capture
         if isinstance(piece, pieces.Pawn) and self.en_passant_target == (move.xto, move.yto):
             self.chesspieces[move.xto][move.yfrom] = 0
 
+        # Move piece
         self.move_piece(piece, move.xto, move.yto)
 
-        # If a pawn reaches the end, promote to queen
-        if piece.piece_type == pieces.Pawn.PIECE_TYPE:
-            if piece.y == 0 or piece.y == Board.HEIGHT-1:
-                self.chesspieces[piece.x][piece.y] = pieces.Queen(piece.x, piece.y, piece.color)
+        # Pawn promotion
+        if isinstance(piece, pieces.Pawn) and (piece.y == 0 or piece.y == Board.HEIGHT-1):
+            self.chesspieces[piece.x][piece.y] = pieces.Queen(piece.x, piece.y, piece.color)
 
-        # En passant eligibility
+        # Set en passant target
         if isinstance(piece, pieces.Pawn) and abs(move.yto - move.yfrom) == 2:
-            self.en_passant_target = (piece.x, (move.yto + move.yfrom) // 2)
+            self.en_passant_target = (piece.x, (move.yto + move.yfrom)//2)
         else:
             self.en_passant_target = None
 
-        if piece.piece_type == pieces.King.PIECE_TYPE:
+        # Castling: handle rook
+        if isinstance(piece, pieces.King):
+            # mark king moved
             if piece.color == pieces.Piece.WHITE:
                 self.white_king_moved = True
             else:
                 self.black_king_moved = True
 
-            if move.xto - move.xfrom == 2:  # Kingside castling
-                rook = self.chesspieces[piece.x+1][piece.y]
-                self.move_piece(rook, piece.x-1, piece.y)
-            elif move.xto - move.xfrom == -2:  # Queenside castling
-                rook = self.chesspieces[piece.x-2][piece.y]
-                self.move_piece(rook, piece.x+1, piece.y)
+            dx = move.xto - move.xfrom
+            if dx == 2:  # kingside
+                rook = self.chesspieces[move.xto+1][move.yto]
+                self.move_piece(rook, move.xto-1, move.yto)
+            elif dx == -2:  # queenside
+                rook = self.chesspieces[move.xto-2][move.yto]
+                self.move_piece(rook, move.xto+1, move.yto)
 
     def move_piece(self, piece, xto, yto):
         self.chesspieces[piece.x][piece.y] = 0

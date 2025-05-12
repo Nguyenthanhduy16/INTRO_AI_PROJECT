@@ -1,5 +1,4 @@
 import board, pieces, numpy
-
 class Heuristics:
 
     # The tables denote the points scored for the position of the chess pieces on the board.
@@ -111,91 +110,74 @@ class AI:
     INFINITE = 10000000
 
     @staticmethod
-    def get_ai_move(chessboard, invalid_moves):
+    def get_ai_move(chessboard, invalid_moves, depth = 3):
+        if invalid_moves is None:
+            invalid_moves = []
+        # Generate and filter moves
+        moves = [m for m in chessboard.get_possible_moves(pieces.Piece.BLACK)
+             if not AI.is_invalid_move(m, invalid_moves)]
+        # Order moves by static evaluation (captures/threats prioritized)
+        def move_score(m):
+            temp = board.Board.clone(chessboard)
+            temp.perform_move(m)
+            return Heuristics.evaluate(temp)
+        moves.sort(key=lambda m: move_score(m))
+
         best_move = 0
         best_score = AI.INFINITE
-        for move in chessboard.get_possible_moves(pieces.Piece.BLACK):
-            if (AI.is_invalid_move(move, invalid_moves)):
-                continue
-
+        alpha, beta = -AI.INFINITE, AI.INFINITE
+        # Search with alpha-beta
+        for move in moves:
             copy = board.Board.clone(chessboard)
             copy.perform_move(move)
-
-            score = AI.alphabeta(copy, 2, -AI.INFINITE, AI.INFINITE, True)
-            if (score < best_score):
+            print(depth)
+            score = AI.alphabeta(copy, depth-1, alpha, beta, True)
+            if score < best_score:
                 best_score = score
                 best_move = move
-
-        # Checkmate.
-        if (best_move == 0):
-            return 0
-
-        copy = board.Board.clone(chessboard)
-        copy.perform_move(best_move)
-        if (copy.is_check(pieces.Piece.BLACK)):
+            beta = min(beta, best_score)
+            if beta <= alpha:
+                break
+        if best_move is None:
+            # No legal move: checkmate or stalemate
+            return None
+        
+        # Avoid moves that leave us in check
+        temp = board.Board.clone(chessboard)
+        temp.perform_move(best_move)
+        if temp.is_check(pieces.Piece.BLACK):
             invalid_moves.append(best_move)
-            return AI.get_ai_move(chessboard, invalid_moves)
+            return AI.get_ai_move(chessboard, invalid_moves, depth)
 
         return best_move
-
     @staticmethod
     def is_invalid_move(move, invalid_moves):
-        for invalid_move in invalid_moves:
-            if (invalid_move.equals(move)):
-                return True
-        return False
-
+        return any(inv.equals(move) for inv in invalid_moves)
     @staticmethod
-    def minimax(board, depth, maximizing):
-        if (depth == 0):
-            return Heuristics.evaluate(board)
-
-        if (maximizing):
-            best_score = -AI.INFINITE
-            for move in board.get_possible_moves(pieces.Piece.WHITE):
-                copy = board.Board.clone(board)
-                copy.perform_move(move)
-
-                score = AI.minimax(copy, depth-1, False)
-                best_score = max(best_score, score)
-
-            return best_score
-        else:
-            best_score = AI.INFINITE
-            for move in board.get_possible_moves(pieces.Piece.BLACK):
-                copy = board.Board.clone(board)
-                copy.perform_move(move)
-
-                score = AI.minimax(copy, depth-1, True)
-                best_score = min(best_score, score)
-
-            return best_score
-
-    @staticmethod
-    def alphabeta(chessboard, depth, a, b, maximizing):
-        if (depth == 0):
-            return Heuristics.evaluate(chessboard)
-
-        if (maximizing):
-            best_score = -AI.INFINITE
-            for move in chessboard.get_possible_moves(pieces.Piece.WHITE):
-                copy = board.Board.clone(chessboard)
-                copy.perform_move(move)
-
-                best_score = max(best_score, AI.alphabeta(copy, depth-1, a, b, False))
-                a = max(a, best_score)
-                if (b <= a):
+    def alphabeta(node, depth, alpha, beta, maximizing):
+        if depth == 0:
+            return Heuristics.evaluate(node)
+        if maximizing:
+            max_eval = -AI.INFINITE
+            for m in node.get_possible_moves(pieces.Piece.WHITE):
+                child = board.Board.clone(node)
+                child.perform_move(m)
+                eval = AI.alphabeta(child, depth-1, alpha, beta, False)
+                max_eval = max(max_eval, eval)
+                alpha = max(alpha, eval)
+                if beta <= alpha:
                     break
-            return best_score
-        else:
-            best_score = AI.INFINITE
-            for move in chessboard.get_possible_moves(pieces.Piece.BLACK):
-                copy = board.Board.clone(chessboard)
-                copy.perform_move(move)
-
-                best_score = min(best_score, AI.alphabeta(copy, depth-1, a, b, True))
-                b = min(b, best_score)
-                if (b <= a):
-                    break
-            return best_score
+            return max_eval
+        
+        min_eval = AI.INFINITE
+        for m in node.get_possible_moves(pieces.Piece.BLACK):
+            child = board.Board.clone(node)
+            child.perform_move(m)
+            eval = AI.alphabeta(child, depth-1, alpha, beta, True)
+            min_eval = min(min_eval, eval)
+            beta = min(beta, eval)
+            if beta <= alpha:
+                break
+        return min_eval
+    
 
