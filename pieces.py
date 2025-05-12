@@ -113,7 +113,8 @@ class Piece():
 
     # Returns the list of moves cleared of all the 0's.
     def remove_null_from_list(self, l):
-        return [move for move in l if move != 0]
+        from move import Move
+        return [m for m in l if isinstance(m, Move)]
 
     def to_string(self):
         return self.color + self.piece_type + " "
